@@ -1,0 +1,4 @@
+./src/MemcachedGPU/.deps
+./src/MemcachedGPU/config.log
+./.cproject
+./.project

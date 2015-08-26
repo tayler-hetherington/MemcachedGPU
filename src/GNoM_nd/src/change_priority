@@ -1,0 +1,1 @@
+sudo renice -20 pid
