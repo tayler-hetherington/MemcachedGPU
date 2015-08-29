@@ -98,8 +98,3 @@ I will continue to make this process more automated. GNoM requires privileged pe
 
     - Unload the modules with the script "unload_modules.sh" in <root_dir>/scripts/. 
 
-# Notes
-
-This code was heavily refactored/cleaned up to release. If you find any bugs or issues with the build process as described above, please send me an e-mail at "tayler (dot) hetherington (at) gmail (dot) com"
-
-
