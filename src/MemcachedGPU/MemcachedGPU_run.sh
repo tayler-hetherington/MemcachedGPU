@@ -5,4 +5,4 @@
 #   GNoM configuration to use GPUDirect (-e 0)
 
 CUR_DIR=$(dirname $0)
-$CUR_DIR/memcached -m 1024 -p 9999 -g 0 -e 0 &
+$CUR_DIR/memcached -m 1024 -p 9999 -g 1 -e 0 &

@@ -28,6 +28,93 @@
 #include "ixgbe.h"
 #include "kcompat.h"
 
+
+// Tayler - hack just to get things working with a newer Linux kernel version that doesn't have __netdev_pick_tx. 
+static inline int kc_get_xps_queue(struct net_device *dev, struct sk_buff *skb)
+{
+#ifdef CONFIG_XPS
+	struct xps_dev_maps *dev_maps;
+	struct xps_map *map;
+	int queue_index = -1;
+
+	rcu_read_lock();
+#if ( LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38) )
+	/* Redhat requires some odd extended netdev structures */
+	dev_maps = rcu_dereference(netdev_extended(dev)->xps_maps);
+#else
+	dev_maps = rcu_dereference(dev->xps_maps);
+#endif
+	if (dev_maps) {
+		map = rcu_dereference(
+		    dev_maps->cpu_map[raw_smp_processor_id()]);
+		if (map) {
+			if (map->len == 1)
+				queue_index = map->queues[0];
+			else {
+				u32 hash;
+				if (skb->sk && skb->sk->sk_hash)
+					hash = skb->sk->sk_hash;
+				else
+					hash = (__force u16) skb->protocol ^
+					    skb->rxhash;
+				hash = jhash_1word(hash, _kc_hashrnd);
+				queue_index = map->queues[
+				    ((u64)hash * map->len) >> 32];
+			}
+			if (unlikely(queue_index >= dev->real_num_tx_queues))
+				queue_index = -1;
+		}
+	}
+	rcu_read_unlock();
+
+	return queue_index;
+#else
+	struct adapter_struct *kc_adapter = netdev_priv(dev);
+	int queue_index = -1;
+
+	if (kc_adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
+		queue_index = skb_rx_queue_recorded(skb) ?
+					   skb_get_rx_queue(skb) :
+					   smp_processor_id();
+		while (unlikely(queue_index >= dev->real_num_tx_queues))
+			queue_index -= dev->real_num_tx_queues;
+		return queue_index;
+	}
+
+	return -1;
+#endif
+}
+
+u16 __kc_netdev_pick_tx(struct net_device *dev, struct sk_buff *skb)
+{
+	struct sock *sk = skb->sk;
+	int queue_index = sk_tx_queue_get(sk);
+	int new_index;
+
+	if (queue_index >= 0 && queue_index < dev->real_num_tx_queues) {
+#ifdef CONFIG_XPS
+		if (!skb->ooo_okay)
+#endif
+			return queue_index;
+	}
+
+	new_index = kc_get_xps_queue(dev, skb);
+	if (new_index < 0)
+		new_index = skb_tx_hash(dev, skb);
+
+	if (queue_index != new_index && sk) {
+		struct dst_entry *dst =
+			    rcu_dereference(sk->sk_dst_cache);
+
+		if (dst && skb_dst(skb) == dst)
+			sk_tx_queue_set(sk, queue_index);
+
+	}
+
+	return new_index;
+}
+
+
 /*****************************************************************************/
 #if ( LINUX_VERSION_CODE < KERNEL_VERSION(2,4,8) )
 /* From lib/vsprintf.c */

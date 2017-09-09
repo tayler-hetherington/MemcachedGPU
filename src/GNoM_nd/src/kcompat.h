@@ -55,6 +55,17 @@
 #include <linux/ethtool.h>
 #include <linux/if_vlan.h>
 
+
+// Tayler: New Linux kernels don't have __netdev_pick_tx, so enable this flag to have us implement it in kcompat.c
+
+//#define HAVE_NETDEV_SELECT_QUEUE
+#define _kc_hashrnd 0xd631614b /* not so random hash salt */
+extern u16 __kc_netdev_pick_tx(struct net_device *dev, struct sk_buff *skb);
+#define __netdev_pick_tx __kc_netdev_pick_tx
+
+
+
+
 /* NAPI enable/disable flags here */
 #define NAPI
 
@@ -3810,6 +3821,7 @@ extern int __kc_netif_set_xps_queue(struct net_device *, struct cpumask *, u16);
 #else /* CONFIG_XPS */
 #define netif_set_xps_queue(_dev, _mask, _idx) do {} while (0)
 #endif /* CONFIG_XPS */
+
 
 #ifdef HAVE_NETDEV_SELECT_QUEUE
 #define _kc_hashrnd 0xd631614b /* not so random hash salt */

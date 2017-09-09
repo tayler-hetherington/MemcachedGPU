@@ -2,3 +2,5 @@
 ./src/MemcachedGPU/config.log
 ./.cproject
 ./.project
+*.o
+*.cmd
